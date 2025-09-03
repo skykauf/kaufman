@@ -138,11 +138,26 @@ def extract_recipe_from_image_pair(image_paths: List[Path]) -> Dict[str, Any]:
     
     # Encode both images
     base64_images = []
+    failed_images = []
     for image_path in image_paths:
         base64_image = encode_image_to_base64(image_path)
         if not base64_image:
-            return {"error": f"Failed to process image {image_path.name}"}
-        base64_images.append(base64_image)
+            failed_images.append(image_path.name)
+        else:
+            base64_images.append(base64_image)
+    
+    # If either image failed, mark the entire recipe pair as lost
+    if failed_images:
+        error_msg = f"Recipe pair lost - failed to process images: {', '.join(failed_images)}"
+        print(f"❌ {error_msg}")
+        return {
+            "error": error_msg,
+            "recipe_lost": True,
+            "failed_images": failed_images,
+            "source_images": image_names,
+            "front_image": image_names[0],
+            "back_image": image_names[1]
+        }
     
     try:
         # Prepare content with both images
@@ -355,7 +370,11 @@ def process_all_recipe_photos() -> List[Dict[str, Any]]:
             image_pair = [image_files[i], image_files[i + 1]]
             result = extract_recipe_from_image_pair(image_pair)
             results.append(result)
-            print(f"Completed recipe pair: {image_files[i].name} + {image_files[i + 1].name}")
+            
+            if "recipe_lost" in result and result["recipe_lost"]:
+                print(f"⚠️  Recipe pair lost: {image_files[i].name} + {image_files[i + 1].name}")
+            else:
+                print(f"✅ Completed recipe pair: {image_files[i].name} + {image_files[i + 1].name}")
         else:
             # Process single image if odd number
             print(f"Processing single image: {image_files[i].name}")
@@ -391,18 +410,25 @@ def main():
             # Print summary
             successful = sum(1 for r in results if "error" not in r)
             failed = len(results) - successful
+            recipe_pairs_lost = sum(1 for r in results if "recipe_lost" in r and r["recipe_lost"])
             
             print("\n" + "=" * 60)
             print(f"Processing complete!")
-            print(f"Successfully processed: {successful} images")
-            print(f"Failed: {failed} images")
-            print(f"Total processed: {len(results)} images")
+            print(f"Successfully processed: {successful} recipes")
+            print(f"Failed: {failed} recipes")
+            if recipe_pairs_lost > 0:
+                print(f"Recipe pairs lost: {recipe_pairs_lost}")
+            print(f"Total processed: {len(results)} recipes")
             
             if failed > 0:
-                print("\nFailed images:")
+                print("\nFailed recipes:")
                 for result in results:
                     if "error" in result:
-                        print(f"  - {result.get('source_image', 'Unknown')}: {result['error']}")
+                        if "recipe_lost" in result and result["recipe_lost"]:
+                            print(f"  - Recipe pair lost: {result.get('front_image', 'Unknown')} + {result.get('back_image', 'Unknown')}")
+                            print(f"    Reason: {result['error']}")
+                        else:
+                            print(f"  - {result.get('source_image', 'Unknown')}: {result['error']}")
         
         else:
             print("No results to save.")

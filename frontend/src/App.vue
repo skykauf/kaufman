@@ -95,7 +95,6 @@
 
 <script>
 import RecipeCard from './components/RecipeCard.vue'
-import recipeData from '../../extracted_recipes.json'
 
 export default {
   name: 'App',
@@ -149,8 +148,14 @@ export default {
   },
   async mounted() {
     try {
-      // Simulate loading time for better UX
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Fetch recipes from GitHub
+      const response = await fetch('https://raw.githubusercontent.com/skykauf/kaufman/refs/heads/main/extracted_recipes.json');
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const recipeData = await response.json();
       
       // Filter out recipes with errors
       this.recipes = recipeData.filter(recipe => recipe.recipe_name);

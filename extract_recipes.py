@@ -131,9 +131,91 @@ def _try_alternative_image_processing(image_path: Path) -> str:
             os.unlink(tmp_path)
         raise e
 
-def extract_recipe_from_image(image_path: Path) -> Dict[str, Any]:
-    """Extract recipe data from a single image using OpenAI Vision API."""
-    print(f"Processing: {image_path.name}")
+def extract_recipe_from_image_pair(image_paths: List[Path]) -> Dict[str, Any]:
+    """Extract recipe data from a pair of images (front and back) using OpenAI Vision API."""
+    image_names = [path.name for path in image_paths]
+    print(f"Processing recipe pair: {image_names[0]} (front) + {image_names[1]} (back)")
+    
+    # Encode both images
+    base64_images = []
+    for image_path in image_paths:
+        base64_image = encode_image_to_base64(image_path)
+        if not base64_image:
+            return {"error": f"Failed to process image {image_path.name}"}
+        base64_images.append(base64_image)
+    
+    try:
+        # Prepare content with both images
+        content_items = [
+            {
+                "type": "text",
+                "text": "Please extract the complete recipe information from these two images. The first image is the FRONT of the recipe card, and the second image is the BACK of the recipe card. Combine information from both sides to provide comprehensive recipe data in the specified JSON format."
+            }
+        ]
+        
+        # Add both images
+        for base64_image in base64_images:
+            content_items.append({
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:image/jpeg;base64,{base64_image}"
+                }
+            })
+        
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {
+                    "role": "system",
+                    "content": SYSTEM_PROMPT
+                },
+                {
+                    "role": "user",
+                    "content": content_items
+                }
+            ],
+            max_tokens=1500,  # Increased for more comprehensive responses
+            temperature=0.1
+        )
+        
+        # Extract the response content
+        content = response.choices[0].message.content
+        
+        # Try to parse JSON from the response
+        try:
+            # Look for JSON content in the response
+            if "```json" in content:
+                json_start = content.find("```json") + 7
+                json_end = content.find("```", json_start)
+                json_content = content[json_start:json_end].strip()
+            elif "```" in content:
+                json_start = content.find("```") + 3
+                json_end = content.find("```", json_start)
+                json_content = content[json_start:json_end].strip()
+            else:
+                json_content = content.strip()
+            
+            recipe_data = json.loads(json_content)
+            recipe_data["source_images"] = image_names
+            recipe_data["front_image"] = image_names[0]
+            recipe_data["back_image"] = image_names[1]
+            return recipe_data
+            
+        except json.JSONDecodeError as e:
+            print(f"Failed to parse JSON from response for recipe pair {image_names}: {e}")
+            return {
+                "error": "Failed to parse JSON response",
+                "raw_response": content,
+                "source_images": image_names
+            }
+    
+    except Exception as e:
+        print(f"Error calling OpenAI API for recipe pair {image_names}: {e}")
+        return {"error": str(e), "source_images": image_names}
+
+def extract_recipe_from_single_image(image_path: Path) -> Dict[str, Any]:
+    """Extract recipe data from a single image (for backward compatibility)."""
+    print(f"Processing single image: {image_path.name}")
     
     # Encode image
     base64_image = encode_image_to_base64(image_path)
@@ -233,7 +315,7 @@ def get_file_format_info(file_path: Path) -> str:
         return f"Error reading file header: {e}"
 
 def process_all_recipe_photos() -> List[Dict[str, Any]]:
-    """Process all photos in the mimi_recipe_pictures directory."""
+    """Process all photos in the mimi_recipe_pictures directory as recipe pairs."""
     pictures_dir = Path("mimi_recipe_pictures")
     
     if not pictures_dir.exists():
@@ -251,19 +333,36 @@ def process_all_recipe_photos() -> List[Dict[str, Any]]:
         print("No image files found in the directory!")
         return []
     
+    # Sort files to ensure correct pairing
+    image_files = sorted(image_files)
+    
     print(f"Found {len(image_files)} image files to process...")
     print("\nFile format analysis:")
-    for img_file in sorted(image_files):
+    for img_file in image_files:
         format_info = get_file_format_info(img_file)
         print(f"  {img_file.name}: {format_info}")
     print()
     
-    # Process each image
+    # Check if we have an even number of images for pairing
+    if len(image_files) % 2 != 0:
+        print(f"⚠️  Warning: Odd number of images ({len(image_files)}). Last image will be processed alone.")
+    
+    # Process images in pairs
     results = []
-    for image_file in sorted(image_files):
-        result = extract_recipe_from_image(image_file)
-        results.append(result)
-        print(f"Completed: {image_file.name}")
+    for i in range(0, len(image_files), 2):
+        if i + 1 < len(image_files):
+            # Process as a pair (front + back)
+            image_pair = [image_files[i], image_files[i + 1]]
+            result = extract_recipe_from_image_pair(image_pair)
+            results.append(result)
+            print(f"Completed recipe pair: {image_files[i].name} + {image_files[i + 1].name}")
+        else:
+            # Process single image if odd number
+            print(f"Processing single image: {image_files[i].name}")
+            result = extract_recipe_from_single_image(image_files[i])
+            results.append(result)
+            print(f"Completed single image: {image_files[i].name}")
+        
         print("-" * 50)
     
     return results
@@ -341,14 +440,58 @@ def test_single_image(image_name: str):
     
     print("=" * 50)
 
+def test_image_pair(image1_name: str, image2_name: str):
+    """Test processing of an image pair for debugging."""
+    pictures_dir = Path("mimi_recipe_pictures")
+    image1_path = pictures_dir / image1_name
+    image2_path = pictures_dir / image2_name
+    
+    if not image1_path.exists():
+        print(f"Image {image1_name} not found!")
+        return
+    if not image2_path.exists():
+        print(f"Image {image2_name} not found!")
+        return
+    
+    print(f"Testing image pair: {image1_name} (front) + {image2_name} (back)")
+    print("=" * 50)
+    
+    # Show file format info for both
+    for img_path, role in [(image1_path, "Front"), (image2_path, "Back")]:
+        format_info = get_file_format_info(img_path)
+        print(f"{role} image ({img_path.name}): {format_info}")
+    print()
+    
+    # Try to encode both images
+    print("Attempting to encode both images...")
+    base64_data1 = encode_image_to_base64(image1_path)
+    base64_data2 = encode_image_to_base64(image2_path)
+    
+    if base64_data1 and base64_data2:
+        print(f"✅ Successfully encoded both images!")
+        print(f"Front image base64 length: {len(base64_data1)} characters")
+        print(f"Back image base64 length: {len(base64_data2)} characters")
+        total_size = (len(base64_data1) + len(base64_data2)) * 3 // 4 / 1024
+        print(f"Total estimated size: {total_size:.1f} KB")
+    else:
+        print("❌ Failed to encode one or both images")
+    
+    print("=" * 50)
+
 if __name__ == "__main__":
     import sys
     
     if len(sys.argv) > 1 and sys.argv[1] == "--test":
-        if len(sys.argv) > 2:
+        if len(sys.argv) == 3:
             test_single_image(sys.argv[2])
+        elif len(sys.argv) == 4:
+            test_image_pair(sys.argv[2], sys.argv[3])
         else:
-            print("Usage: python extract_recipes.py --test <image_name>")
-            print("Example: python extract_recipes.py --test IMG_6165.HEIC")
+            print("Usage:")
+            print("  Single image: python extract_recipes.py --test <image_name>")
+            print("  Image pair:   python extract_recipes.py --test <front_image> <back_image>")
+            print("Examples:")
+            print("  python extract_recipes.py --test IMG_6165.HEIC")
+            print("  python extract_recipes.py --test IMG_6165.HEIC IMG_6166.HEIC")
     else:
         main()

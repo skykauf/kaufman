@@ -1,47 +1,21 @@
-# Vue.js Frontend
+# 🍳 Mimi's Recipe Collection
 
-A minimal Vue.js frontend application with a modern UI.
+A beautiful Vue.js application to display and browse family recipes with images.
+
+## Features
+
+- **Recipe Display**: Beautiful cards showing recipe details including ingredients, instructions, and cooking times
+- **Search & Filter**: Search recipes by name or ingredients, filter by cuisine type and difficulty
+- **Image Support**: Display front and back images of recipe cards
+- **Responsive Design**: Works perfectly on desktop, tablet, and mobile devices
+- **Modern UI**: Clean, modern interface with smooth animations and hover effects
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js (version 16 or higher) - We recommend Node.js 24
+- Node.js (version 14 or higher)
 - npm or yarn
-
-#### Installing Node.js with nvm (Recommended)
-
-1. **Install nvm (Node Version Manager):**
-
-   **On macOS/Linux:**
-   ```bash
-   curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
-   ```
-
-   **On Windows:**
-   Download and install [nvm-windows](https://github.com/coreybutler/nvm-windows/releases)
-
-2. **Restart your terminal or run:**
-   ```bash
-   source ~/.bashrc  # or source ~/.zshrc for zsh
-   ```
-
-3. **Install Node.js 24:**
-   ```bash
-   nvm install 24
-   ```
-
-4. **Set Node.js 24 as default:**
-   ```bash
-   nvm use 24
-   nvm alias default 24
-   ```
-
-5. **Verify installation:**
-   ```bash
-   node --version  # Should show v24.x.x
-   npm --version   # Should show the npm version
-   ```
 
 ### Installation
 
@@ -55,49 +29,126 @@ A minimal Vue.js frontend application with a modern UI.
    npm install
    ```
 
-### Development
+3. Start the development server:
+   ```bash
+   npm run dev
+   ```
 
-To start the development server:
+4. Open your browser and navigate to `http://localhost:5173`
 
-```bash
-npm run dev
+## Recipe Data Structure
+
+The application reads recipe data from `src/extracted_recipes.json`. Each recipe has the following structure:
+
+```json
+{
+  "recipe_name": "Recipe Name",
+  "ingredients": [
+    {
+      "item": "ingredient name",
+      "amount": "quantity",
+      "notes": "optional notes"
+    }
+  ],
+  "instructions": [
+    "Step 1: First instruction",
+    "Step 2: Second instruction"
+  ],
+  "cooking_time": "time description",
+  "servings": "number of servings",
+  "difficulty": "easy|medium|hard",
+  "cuisine_type": "cuisine name",
+  "dietary_info": [],
+  "notes": "additional notes",
+  "front_image": "image_filename.jpg",
+  "back_image": "image_filename.jpg"
+}
 ```
 
-This will start the development server at `http://localhost:3000` and automatically open your browser.
+## Image Setup
 
-### Building for Production
+### Using Real Images
 
-To build the application for production:
+1. Convert your HEIC images to JPEG format
+2. Place the JPEG files in `public/mimi_recipe_pictures/`
+3. Update the recipe data to reference the correct image filenames
 
-```bash
-npm run build
-```
+### Using Placeholder Images
 
-The built files will be in the `dist` directory.
+The application includes SVG placeholder images for testing. These are automatically used if the referenced images are not found.
 
-### Preview Production Build
+## Available Scripts
 
-To preview the production build:
-
-```bash
-npm run preview
-```
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run preview` - Preview production build
 
 ## Project Structure
 
 ```
 frontend/
-├── index.html          # Main HTML file
-├── package.json         # Dependencies and scripts
-├── vite.config.js       # Vite configuration
 ├── src/
-│   ├── main.js         # Vue app entry point
-│   └── App.vue         # Main Vue component
-└── README.md           # This file
+│   ├── components/
+│   │   └── RecipeCard.vue      # Individual recipe display component
+│   ├── App.vue                 # Main application component
+│   ├── main.js                 # Application entry point
+│   └── extracted_recipes.json # Recipe data
+├── public/
+│   └── mimi_recipe_pictures/  # Recipe images
+└── package.json
 ```
 
-## Technologies Used
+## Customization
 
-- Vue.js 3 - Progressive JavaScript framework
-- Vite - Fast build tool and dev server
-- Modern CSS with gradients and animations
+### Styling
+
+The application uses CSS with modern design principles:
+- Gradient backgrounds
+- Card-based layout
+- Smooth transitions and hover effects
+- Responsive design with mobile-first approach
+
+### Adding New Recipes
+
+1. Add your recipe data to `src/extracted_recipes.json`
+2. Add corresponding images to `public/mimi_recipe_pictures/`
+3. The application will automatically display the new recipes
+
+### Modifying Components
+
+- `RecipeCard.vue`: Customize how individual recipes are displayed
+- `App.vue`: Modify the main layout, search, and filtering functionality
+
+## Browser Support
+
+The application works in all modern browsers:
+- Chrome (recommended)
+- Firefox
+- Safari
+- Edge
+
+## Troubleshooting
+
+### Images Not Loading
+
+- Ensure image files exist in `public/mimi_recipe_pictures/`
+- Check that image filenames match those referenced in the recipe data
+- Verify image format is supported (JPEG, PNG, SVG)
+
+### Development Server Issues
+
+- Clear node_modules and reinstall: `rm -rf node_modules && npm install`
+- Check Node.js version: `node --version`
+- Ensure port 5173 is not in use
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
+
+## License
+
+This project is open source and available under the MIT License.

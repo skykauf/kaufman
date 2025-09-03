@@ -66,7 +66,7 @@
 
 <script>
 import RecipeCard from './components/RecipeCard.vue'
-import recipeData from './extracted_recipes.json'
+import recipeData from '../../extracted_recipes.json'
 
 export default {
   name: 'App',

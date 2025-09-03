@@ -25,7 +25,7 @@
     <div class="recipe-images" v-if="recipe.front_image">
       <div class="image-container">
         <img 
-          :src="`/mimi_recipe_pictures/${recipe.front_image}`" 
+          :src="getGitHubImageUrl(recipe.front_image)" 
           :alt="`${recipe.recipe_name} - Front`"
           class="recipe-image"
           @error="handleImageError"
@@ -34,7 +34,7 @@
       </div>
       <div class="image-container" v-if="recipe.back_image">
         <img 
-          :src="`/mimi_recipe_pictures/${recipe.back_image}`" 
+          :src="getGitHubImageUrl(recipe.back_image)" 
           :alt="`${recipe.recipe_name} - Back`"
           class="recipe-image"
           @error="handleImageError"
@@ -91,6 +91,10 @@ export default {
     }
   },
   methods: {
+    getGitHubImageUrl(imageName) {
+      return `https://github.com/skykauf/kaufman/raw/refs/heads/main/mimi_recipe_pictures/${imageName}`;
+    },
+
     handleImageError(event) {
       // Create a fallback div with recipe name
       const fallbackDiv = document.createElement('div');

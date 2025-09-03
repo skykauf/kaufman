@@ -52,18 +52,31 @@ Be as detailed and accurate as possible. If any information is unclear or not vi
 def encode_image_to_base64(image_path: Path) -> str:
     """Convert image to base64 string for OpenAI API."""
     try:
-        # Handle HEIC files
-        if image_path.suffix.lower() == '.heic':
-            heif_file = pillow_heif.read_heif(image_path)
-            image = Image.frombytes(
-                heif_file.mode, 
-                heif_file.size, 
-                heif_file.data,
-                "raw",
-                heif_file.mode,
-                heif_file.stride,
-            )
+        # Try to detect the actual file format by reading the first few bytes
+        with open(image_path, 'rb') as f:
+            header = f.read(12)
+        
+        # Check if it's actually a HEIC file
+        is_heic = (image_path.suffix.lower() == '.heic' and 
+                   (b'ftyp' in header or b'heic' in header or b'heix' in header))
+        
+        if is_heic:
+            try:
+                heif_file = pillow_heif.read_heif(image_path)
+                image = Image.frombytes(
+                    heif_file.mode, 
+                    heif_file.size, 
+                    heif_file.data,
+                    "raw",
+                    heif_file.mode,
+                    heif_file.stride,
+                )
+            except Exception as heif_error:
+                print(f"HEIC processing failed for {image_path.name}, trying as regular image: {heif_error}")
+                # Fall back to regular image processing
+                image = Image.open(image_path)
         else:
+            # Try to open as regular image
             image = Image.open(image_path)
         
         # Convert to RGB if necessary
@@ -80,7 +93,43 @@ def encode_image_to_base64(image_path: Path) -> str:
     
     except Exception as e:
         print(f"Error processing image {image_path}: {e}")
-        return None
+        # Try alternative approach - use system tools if available
+        try:
+            return _try_alternative_image_processing(image_path)
+        except Exception as alt_error:
+            print(f"Alternative processing also failed for {image_path.name}: {alt_error}")
+            return None
+
+def _try_alternative_image_processing(image_path: Path) -> str:
+    """Try alternative methods to process problematic images."""
+    import subprocess
+    import tempfile
+    
+    # Try using sips (macOS) to convert HEIC to JPEG
+    try:
+        with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as tmp_file:
+            tmp_path = tmp_file.name
+        
+        # Use sips to convert HEIC to JPEG
+        result = subprocess.run([
+            'sips', '-s', 'format', 'jpeg', 
+            str(image_path), '--out', tmp_path
+        ], capture_output=True, text=True, timeout=30)
+        
+        if result.returncode == 0 and os.path.exists(tmp_path):
+            # Read the converted image
+            with open(tmp_path, 'rb') as f:
+                image_data = f.read()
+            os.unlink(tmp_path)  # Clean up temp file
+            return base64.b64encode(image_data).decode('utf-8')
+        else:
+            raise Exception(f"sips conversion failed: {result.stderr}")
+            
+    except Exception as e:
+        # Clean up temp file if it exists
+        if 'tmp_path' in locals() and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+        raise e
 
 def extract_recipe_from_image(image_path: Path) -> Dict[str, Any]:
     """Extract recipe data from a single image using OpenAI Vision API."""
@@ -152,6 +201,37 @@ def extract_recipe_from_image(image_path: Path) -> Dict[str, Any]:
         print(f"Error calling OpenAI API for {image_path.name}: {e}")
         return {"error": str(e), "source_image": image_path.name}
 
+def get_file_format_info(file_path: Path) -> str:
+    """Get information about the actual file format by examining the file header."""
+    try:
+        with open(file_path, 'rb') as f:
+            header = f.read(16)
+        
+        # Common file signatures
+        signatures = {
+            b'\xff\xd8\xff': 'JPEG',
+            b'\x89PNG\r\n\x1a\n': 'PNG',
+            b'GIF87a': 'GIF',
+            b'GIF89a': 'GIF',
+            b'BM': 'BMP',
+            b'II*\x00': 'TIFF (little-endian)',
+            b'MM\x00*': 'TIFF (big-endian)',
+            b'ftyp': 'HEIC/MP4',
+            b'heic': 'HEIC',
+            b'heix': 'HEIC'
+        }
+        
+        detected_format = 'Unknown'
+        for signature, format_name in signatures.items():
+            if header.startswith(signature) or signature in header:
+                detected_format = format_name
+                break
+        
+        return f"Extension: {file_path.suffix}, Detected: {detected_format}, Size: {file_path.stat().st_size / (1024*1024):.1f}MB"
+    
+    except Exception as e:
+        return f"Error reading file header: {e}"
+
 def process_all_recipe_photos() -> List[Dict[str, Any]]:
     """Process all photos in the mimi_recipe_pictures directory."""
     pictures_dir = Path("mimi_recipe_pictures")
@@ -172,6 +252,11 @@ def process_all_recipe_photos() -> List[Dict[str, Any]]:
         return []
     
     print(f"Found {len(image_files)} image files to process...")
+    print("\nFile format analysis:")
+    for img_file in sorted(image_files):
+        format_info = get_file_format_info(img_file)
+        print(f"  {img_file.name}: {format_info}")
+    print()
     
     # Process each image
     results = []

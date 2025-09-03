@@ -316,7 +316,7 @@ def get_file_format_info(file_path: Path) -> str:
 
 def process_all_recipe_photos() -> List[Dict[str, Any]]:
     """Process all photos in the mimi_recipe_pictures directory as recipe pairs."""
-    pictures_dir = Path("mimi_recipe_pictures")
+    pictures_dir = Path(__file__).parent.parent / "mimi_recipe_pictures"
     
     if not pictures_dir.exists():
         print(f"Directory {pictures_dir} not found!")
@@ -369,9 +369,11 @@ def process_all_recipe_photos() -> List[Dict[str, Any]]:
 
 def save_results(results: List[Dict[str, Any]], output_file: str = "extracted_recipes.json"):
     """Save the extracted recipe data to a JSON file."""
-    with open(output_file, 'w', encoding='utf-8') as f:
+    # Ensure the output file is saved in the kaufman directory
+    output_path = Path(__file__).parent.parent / output_file
+    with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(results, f, indent=2, ensure_ascii=False)
-    print(f"Results saved to {output_file}")
+    print(f"Results saved to {output_path}")
 
 def main():
     """Main function to run the recipe extraction process."""
@@ -412,7 +414,7 @@ def main():
 
 def test_single_image(image_name: str):
     """Test processing of a single image for debugging."""
-    pictures_dir = Path("mimi_recipe_pictures")
+    pictures_dir = Path(__file__).parent.parent / "mimi_recipe_pictures"
     image_path = pictures_dir / image_name
     
     if not image_path.exists():
@@ -442,7 +444,7 @@ def test_single_image(image_name: str):
 
 def test_image_pair(image1_name: str, image2_name: str):
     """Test processing of an image pair for debugging."""
-    pictures_dir = Path("mimi_recipe_pictures")
+    pictures_dir = Path(__file__).parent.parent / "mimi_recipe_pictures"
     image1_path = pictures_dir / image1_name
     image2_path = pictures_dir / image2_name
     

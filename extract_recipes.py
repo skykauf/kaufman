@@ -142,7 +142,7 @@ def extract_recipe_from_image(image_path: Path) -> Dict[str, Any]:
     
     try:
         response = client.chat.completions.create(
-            model="gpt-4-vision-preview",
+            model="gpt-4o",
             messages=[
                 {
                     "role": "system",
@@ -311,5 +311,44 @@ def main():
         import traceback
         traceback.print_exc()
 
+def test_single_image(image_name: str):
+    """Test processing of a single image for debugging."""
+    pictures_dir = Path("mimi_recipe_pictures")
+    image_path = pictures_dir / image_name
+    
+    if not image_path.exists():
+        print(f"Image {image_name} not found!")
+        return
+    
+    print(f"Testing single image: {image_name}")
+    print("=" * 50)
+    
+    # Show file format info
+    format_info = get_file_format_info(image_path)
+    print(f"File info: {format_info}")
+    print()
+    
+    # Try to encode the image
+    print("Attempting to encode image...")
+    base64_data = encode_image_to_base64(image_path)
+    
+    if base64_data:
+        print(f"✅ Successfully encoded image!")
+        print(f"Base64 length: {len(base64_data)} characters")
+        print(f"Estimated size: {len(base64_data) * 3 // 4 / 1024:.1f} KB")
+    else:
+        print("❌ Failed to encode image")
+    
+    print("=" * 50)
+
 if __name__ == "__main__":
-    main()
+    import sys
+    
+    if len(sys.argv) > 1 and sys.argv[1] == "--test":
+        if len(sys.argv) > 2:
+            test_single_image(sys.argv[2])
+        else:
+            print("Usage: python extract_recipes.py --test <image_name>")
+            print("Example: python extract_recipes.py --test IMG_6165.HEIC")
+    else:
+        main()

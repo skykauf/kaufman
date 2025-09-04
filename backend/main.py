@@ -1,8 +1,11 @@
-from fastapi import FastAPI, Depends, HTTPException, Query
+from fastapi import FastAPI, Depends, HTTPException, Query, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import uvicorn
+import os
+import shutil
+from pathlib import Path
 
 from config import settings
 from database import get_db
@@ -100,5 +103,70 @@ async def get_stats(db: Session = Depends(get_db)):
         "total_cuisines": total_cuisines
     }
 
+@app.post("/upload-recipe-photos")
+async def upload_recipe_photos(
+    folder_id: str = Form(...),
+    front_photo: UploadFile = File(...),
+    back_photo: UploadFile = File(...)
+):
+    """Upload front and back photos of a recipe card"""
+    
+    # Validate file types
+    allowed_types = ["image/jpeg", "image/jpg", "image/png", "image/heic", "image/heif"]
+    
+    if front_photo.content_type not in allowed_types:
+        raise HTTPException(status_code=400, detail="Front photo must be a valid image file")
+    
+    if back_photo.content_type not in allowed_types:
+        raise HTTPException(status_code=400, detail="Back photo must be a valid image file")
+    
+    # Validate file sizes (10MB max)
+    max_size = 10 * 1024 * 1024  # 10MB
+    
+    front_content = await front_photo.read()
+    back_content = await back_photo.read()
+    
+    if len(front_content) > max_size:
+        raise HTTPException(status_code=400, detail="Front photo file size exceeds 10MB limit")
+    
+    if len(back_content) > max_size:
+        raise HTTPException(status_code=400, detail="Back photo file size exceeds 10MB limit")
+    
+    try:
+        # Create the upload directory path
+        base_path = Path(__file__).parent.parent / "mimi_recipe_pictures" / folder_id
+        base_path.mkdir(parents=True, exist_ok=True)
+        
+        # Determine file extensions
+        front_ext = ".jpg" if front_photo.content_type in ["image/jpeg", "image/jpg"] else \
+                   ".png" if front_photo.content_type == "image/png" else \
+                   ".heic"
+        
+        back_ext = ".jpg" if back_photo.content_type in ["image/jpeg", "image/jpg"] else \
+                  ".png" if back_photo.content_type == "image/png" else \
+                  ".heic"
+        
+        # Save files with proper names
+        front_path = base_path / f"front{front_ext}"
+        back_path = base_path / f"back{back_ext}"
+        
+        # Write files
+        with open(front_path, "wb") as f:
+            f.write(front_content)
+        
+        with open(back_path, "wb") as f:
+            f.write(back_content)
+        
+        return {
+            "message": "Photos uploaded successfully",
+            "folder_id": folder_id,
+            "front_photo": f"front{front_ext}",
+            "back_photo": f"back{back_ext}",
+            "upload_path": str(base_path)
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to upload photos: {str(e)}")
+
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)

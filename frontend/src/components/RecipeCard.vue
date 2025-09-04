@@ -182,7 +182,7 @@ export default {
   },
   methods: {
     getGitHubImageUrl(imageName) {
-      return `https://github.com/skykauf/kaufman/raw/refs/heads/main/mimi_recipe_pictures/${imageName}`;
+      return `https://github.com/KaufmanEnterprises/kaufman/raw/refs/heads/main/mimi_recipe_pictures/${imageName}`;
     },
 
     handleImageError(event) {

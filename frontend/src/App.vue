@@ -149,7 +149,7 @@ export default {
   async mounted() {
     try {
       // Fetch recipes from GitHub
-      const response = await fetch('https://raw.githubusercontent.com/skykauf/kaufman/refs/heads/main/extracted_recipes.json');
+      const response = await fetch('https://raw.githubusercontent.com/KaufmanEnterprises/kaufman/refs/heads/main/extracted_recipes.json');
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
